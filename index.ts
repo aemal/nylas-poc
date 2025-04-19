@@ -12,6 +12,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import crypto from 'crypto';
 import type { FastifyRequest } from 'fastify';
+import axios from 'axios';
 
 // Extend FastifyRequest to include rawBody property
 declare module 'fastify' {
@@ -24,6 +25,23 @@ declare module 'fastify' {
 interface EmailRecipient {
   email: string;
   name?: string;
+}
+
+// Define interface for sending email
+interface SendEmailRequest {
+  to: EmailRecipient[];
+  subject: string;
+  body: string;
+  cc?: EmailRecipient[];
+  bcc?: EmailRecipient[];
+  reply_to?: EmailRecipient[];
+  tracking_options?: {
+    opens?: boolean;
+    links?: boolean;
+    thread_replies?: boolean;
+    label?: string;
+  };
+  send_draft?: boolean; // Option to send draft immediately
 }
 
 // Define Nylas notification payload types
@@ -336,18 +354,170 @@ fastify.post('/pubsub/nylas', async (request, reply) => {
   }
 });
 
+// Add a new endpoint for sending emails
+fastify.post('/api/send-email', async (request, reply) => {
+  try {
+    const emailRequest = request.body as SendEmailRequest;
+    
+    // Validate required fields
+    if (!emailRequest.to || !emailRequest.subject || !emailRequest.body) {
+      return reply.code(400).send({ 
+        error: 'Missing required fields', 
+        message: 'The fields "to", "subject", and "body" are required' 
+      });
+    }
+    
+    // Check if there are recipients
+    if (!Array.isArray(emailRequest.to) || emailRequest.to.length === 0) {
+      return reply.code(400).send({ 
+        error: 'Invalid recipients', 
+        message: 'The "to" field must be a non-empty array of email recipients' 
+      });
+    }
+    
+    console.log('📧 Sending email:');
+    console.log(`   To: ${emailRequest.to.map(r => r.email).join(', ')}`);
+    console.log(`   Subject: ${emailRequest.subject}`);
+    
+    // Prepare the request to Nylas API
+    const nylasApiKey = process.env.NYLAS_API_KEY;
+    const nylasApiUri = process.env.NYLAS_API_URI || 'https://api.us.nylas.com';
+    const grantId = process.env.NYLAS_GRANT_ID;
+    
+    // Check for missing configuration
+    if (!nylasApiKey || !grantId) {
+      console.error('❌ Missing configuration:', {
+        apiKey: !nylasApiKey,
+        grantId: !grantId
+      });
+      return reply.code(500).send({ 
+        error: 'Configuration error', 
+        message: 'Missing required environment variables (NYLAS_API_KEY or NYLAS_GRANT_ID)' 
+      });
+    }
+    
+    // Determine whether to create a draft or send directly
+    let apiUrl: string;
+    
+    if (emailRequest.send_draft === false) {
+      // Create draft only
+      apiUrl = `${nylasApiUri}/v3/grants/${grantId}/drafts`;
+    } else {
+      // Send directly
+      apiUrl = `${nylasApiUri}/v3/grants/${grantId}/messages/send`;
+    }
+    
+    // Prepare email payload
+    const payload: any = {
+      to: emailRequest.to.map((recipient) => ({ email: recipient.email, name: recipient.name || '' })),
+      subject: emailRequest.subject,
+      body: emailRequest.body
+    };
+
+    // Add optional fields if present
+    if (emailRequest.cc && emailRequest.cc.length > 0) {
+      payload.cc = emailRequest.cc.map((recipient) => ({ email: recipient.email, name: recipient.name || '' }));
+    }
+
+    if (emailRequest.bcc && emailRequest.bcc.length > 0) {
+      payload.bcc = emailRequest.bcc.map((recipient) => ({ email: recipient.email, name: recipient.name || '' }));
+    }
+
+    if (emailRequest.reply_to && emailRequest.reply_to.length > 0) {
+      payload.reply_to = emailRequest.reply_to.map((recipient) => ({ email: recipient.email, name: recipient.name || '' }));
+    }
+    
+    // Add tracking options if present
+    if (emailRequest.tracking_options) {
+      payload.tracking_options = emailRequest.tracking_options;
+    }
+    
+    // Send the request to Nylas API
+    const response = await axios.post(
+      apiUrl,
+      payload,
+      {
+        headers: {
+          'Authorization': `Bearer ${nylasApiKey}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    // Log the successful response
+    console.log(`✅ Email sent successfully! ID: ${response.data.id}`);
+    return response.data;
+    
+  } catch (error) {
+    console.error('❌ Error sending email:');
+    
+    // Handle Axios errors specially to extract useful info
+    if (axios.isAxiosError(error) && error.response) {
+      console.error(`   Status: ${error.response.status} (${error.response.statusText})`);
+      
+      // For Nylas API specific errors
+      if (error.response.status === 403) {
+        console.error('   Reason: Authorization error - invalid API key or grant ID');
+        console.error('   Action: Please re-authorize the application to get a new grant ID');
+        return reply.code(403).send({
+          error: 'Nylas API authorization error',
+          message: 'Your Nylas API key or grant ID may be invalid, expired, or missing required permissions',
+          action: 'Re-authorize the application to get a new grant ID'
+        });
+      }
+      
+      if (typeof error.response.data === 'object') {
+        console.error(`   Details: ${JSON.stringify(error.response.data, null, 2)}`);
+      }
+      
+      return reply.code(error.response.status).send({ 
+        error: 'Nylas API error',
+        status: error.response.status,
+        message: error.response.data?.message || error.message
+      });
+    }
+    
+    // Generic error handling
+    console.error(`   ${error instanceof Error ? error.message : 'Unknown error'}`);
+    return reply.code(500).send({ 
+      error: 'Failed to send email', 
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Start the server
 const start = async () => {
+  // Define port explicitly
+  const PORT = 3002;
+  
   try {
-    await fastify.listen({ port: 3002, host: '0.0.0.0' });
-    console.log('Server listening on port 3002');
-    console.log('Nylas webhook endpoint available at: http://your-server-url:3002/webhook/nylas');
-    console.log('Pub/Sub push endpoint available at: http://your-server-url:3002/pubsub/nylas');
-  } catch (err) {
-    console.error("Error starting server:", err);
+    await fastify.listen({ 
+      port: PORT, 
+      host: '0.0.0.0' 
+    });
+    
+    console.log('--------------------------------------');
+    console.log(`✅ Server started successfully on port ${PORT}`);
+    console.log(`📡 Listening on: http://localhost:${PORT}`);
+    console.log(`📧 Email endpoint: http://localhost:${PORT}/api/send-email`);
+    console.log('--------------------------------------');
+  } catch (err: any) {
+    console.error(`❌ Error starting server on port ${PORT}:`, err.message || String(err));
     process.exit(1);
   }
 };
+
+// Clean up logging throughout the app
+fastify.addHook('onRequest', (request, reply, done) => {
+  // Only log routes we care about, not every request
+  const importantRoutes = ['/api/send-email', '/webhook/nylas', '/pubsub/nylas'];
+  if (request.routeOptions?.url && importantRoutes.includes(request.routeOptions.url)) {
+    console.log(`📥 ${request.method} ${request.routeOptions.url}`);
+  }
+  done();
+});
 
 start();
 

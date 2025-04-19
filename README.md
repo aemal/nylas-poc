@@ -64,9 +64,77 @@ The Fastify server includes an endpoint that can receive Pub/Sub notifications:
 bun run index.ts
 ```
 
-The server will listen on port 3001 and provide the following endpoints:
-- Webhook endpoint: `http://your-server-url/webhook/nylas`
-- Pub/Sub endpoint: `http://your-server-url/pubsub/nylas`
+The server will listen on port 3002 and provide the following endpoints:
+- Webhook endpoint: `http://your-server-url:3002/webhook/nylas`
+- Pub/Sub endpoint: `http://your-server-url:3002/pubsub/nylas`
+- Email sending endpoint: `http://your-server-url:3002/api/send-email`
+
+### Sending Emails
+
+You can send emails using the `/api/send-email` endpoint. Here's an example using Postman:
+
+**Endpoint:** `POST http://localhost:3002/api/send-email`
+
+**Headers:**
+```
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "to": [
+    {
+      "email": "recipient@example.com",
+      "name": "Recipient Name"
+    }
+  ],
+  "subject": "Test Email from Nylas API",
+  "body": "<h1>Hello!</h1><p>This is a test email sent via the Nylas API.</p>",
+  "cc": [
+    {
+      "email": "cc@example.com",
+      "name": "CC Recipient"
+    }
+  ],
+  "bcc": [
+    {
+      "email": "bcc@example.com"
+    }
+  ],
+  "reply_to": {
+    "email": "reply@example.com",
+    "name": "Reply Contact"
+  }
+}
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Email sent successfully",
+  "messageId": "abc123def456"
+}
+```
+
+The required fields are `to`, `subject`, and `body`. The fields `cc`, `bcc`, and `reply_to` are optional.
+
+Note: The email body can contain HTML markup for rich text formatting.
+
+#### Troubleshooting Email Sending
+
+If you encounter a 403 Forbidden error when trying to send emails, check the following:
+
+1. **Grant Permissions**: Make sure your Nylas grant has permission to send emails. This requires:
+   - Proper authentication scope that includes sending emails
+   - A valid grant with connected email account
+
+2. **API Key & Grant ID**: Verify your Nylas API key and grant ID in the `.env` file
+
+3. **Email Provider Restrictions**: Some email providers may have restrictions on sending emails through APIs
+
+4. **Nylas Dashboard**: Log into the Nylas dashboard to check your grant status and permissions
 
 ### Local Development with ngrok
 
