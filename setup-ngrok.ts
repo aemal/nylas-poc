@@ -1,11 +1,16 @@
 #!/usr/bin/env bun
 
 /**
+ * Nylas Pub/Sub Integration - ngrok Setup Script
+ * 
  * This script automatically detects your ngrok URL and sets up a Google Cloud Pub/Sub
  * push subscription that points to your local development environment.
  * 
+ * @license MIT
+ * @copyright Copyright (c) 2025 Aemal Sayer
+ * 
  * Prerequisites:
- * 1. ngrok must be running (ngrok http 3001)
+ * 1. ngrok must be running (ngrok http 3002)
  * 2. Your server must be running (bun run index.ts)
  * 
  * Run with: bun run setup-ngrok.ts

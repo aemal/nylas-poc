@@ -1,7 +1,13 @@
 #!/usr/bin/env bun
 
 /**
+ * Nylas Pub/Sub Integration - Pub/Sub Setup Script
+ * 
  * This script configures a Google Cloud Pub/Sub subscription to push messages to a specified endpoint.
+ * 
+ * @license MIT
+ * @copyright Copyright (c) 2025 Aemal Sayer
+ * 
  * Run with: bun run setup-pubsub.ts
  */
 

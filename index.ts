@@ -1,3 +1,13 @@
+/**
+ * Nylas Pub/Sub Integration
+ * 
+ * A Fastify server that integrates with Nylas APIs and Google Cloud Pub/Sub
+ * to receive real-time notifications about email, calendar, and contact updates.
+ * 
+ * @license MIT
+ * @copyright Copyright (c) 2025 Aemal Sayer
+ */
+
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import crypto from 'crypto';

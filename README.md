@@ -158,3 +158,7 @@ You can configure which notification types you want to receive when creating the
 - Verify that the Pub/Sub topic and subscription are correctly configured
 - Make sure your server is publicly accessible if using a Push subscription
 - Check Google Cloud console logs for any Pub/Sub delivery errors
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

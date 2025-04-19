@@ -1,8 +1,14 @@
 #!/usr/bin/env bun
 
 /**
+ * Nylas Pub/Sub Integration - Message Puller Script
+ * 
  * This script manually pulls messages from a Google Cloud Pub/Sub subscription.
  * It's an alternative to the push delivery method and can be useful for testing.
+ * 
+ * @license MIT
+ * @copyright Copyright (c) 2025 Aemal Sayer
+ * 
  * Run with: bun run pull-messages.ts
  */
 
